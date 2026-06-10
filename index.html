@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opportunity Hub</title>
+<meta name="description" content="Live feed of hackathons, gigs, jobs, internships, and cash-prize competitions for high school students.">
+<style>
+  :root {
+    --bg: #0b1120; --panel: #111a2e; --card: #16203a; --border: #233354;
+    --text: #e2e8f0; --muted: #8aa0c4; --dim: #5b6e91;
+    --violet: #a78bfa; --blue: #60a5fa; --amber: #fbbf24; --green: #4ade80;
+    --red: #f87171; --pink: #f472b6; --slate: #94a3b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; min-height: 100vh; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 18px 60px; }
+
+  header { padding: 42px 0 20px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.5px;
+       background: linear-gradient(90deg, #a78bfa, #60a5fa, #4ade80);
+       -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; display: inline-block; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .sub .dot { color: var(--dim); margin: 0 6px; }
+  #updated { color: var(--dim); }
+
+  .controls { position: sticky; top: 0; z-index: 10; background: linear-gradient(var(--bg) 80%, transparent); padding: 12px 0 14px; }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .tab { background: var(--panel); border: 1px solid var(--border); color: var(--muted); border-radius: 99px;
+         padding: 7px 15px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .tab:hover { border-color: var(--blue); color: var(--text); }
+  .tab.active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+  .tab .n { opacity: .7; font-weight: 700; margin-left: 5px; }
+  #search { width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text); padding: 11px 14px; font-size: 14px; outline: none; }
+  #search:focus { border-color: var(--blue); }
+
+  .note { background: #2a2113; border: 1px solid #4d3c14; color: #fbbf24; border-radius: 10px;
+          padding: 10px 14px; font-size: 13px; margin: 10px 0; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin-top: 14px; }
+  .grid.list { grid-template-columns: 1fr; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+          transition: border-color .15s, transform .15s; }
+  .card:hover { border-color: var(--blue); transform: translateY(-1px); }
+  .card a.title { color: var(--text); font-weight: 700; font-size: 14.5px; text-decoration: none; line-height: 1.4; }
+  .card a.title:hover { color: var(--blue); }
+  .meta { color: var(--muted); font-size: 12.5px; margin-top: 6px; line-height: 1.6; }
+  .meta b { color: var(--green); }
+
+  .pill { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 99px;
+          margin-left: 6px; vertical-align: 2px; }
+  .pill.src { background: #1e2c4d; color: var(--blue); }
+  .pill.hs { background: #14342a; color: var(--green); }
+  .pill.warn { background: #3a2a12; color: var(--amber); }
+  .pill.urgent { background: #3d1a1a; color: var(--red); }
+  .pill.ok { background: #14342a; color: var(--green); }
+  .pill.rolling { background: #1f2a40; color: var(--slate); }
+
+  .empty { color: var(--dim); padding: 40px 0; text-align: center; font-size: 14px; }
+  .loading { text-align: center; padding: 80px 0; color: var(--muted); font-size: 15px; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--blue);
+             border-radius: 50%; margin: 0 auto 14px; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer { color: var(--dim); font-size: 12px; line-height: 1.7; margin-top: 50px; border-top: 1px solid var(--border); padding-top: 16px; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Opportunity Hub</h1>
+    <div class="sub">Hackathons, gigs, jobs, internships, and prize money for high schoolers
+      <span class="dot">·</span><span id="updated">loading…</span></div>
+  </header>
+
+  <div class="controls">
+    <div class="tabs" id="tabs"></div>
+    <input id="search" type="search" placeholder="Search everything…" autocomplete="off">
+  </div>
+
+  <div id="notes"></div>
+  <div id="content"><div class="loading"><div class="spinner"></div>Pulling live data…</div></div>
+
+  <footer>
+    Data refreshes automatically from Devpost, MLH, Hack Club, Devfolio, Reddit, and Adzuna. Curated deadlines are approximate; verify on the source site.
+    NC workers under 18 need a <a href="https://www.labor.nc.gov" target="_blank" rel="noopener">Youth Employment Certificate</a>.
+    Powered by a <a href="https://hs-money-digest.vercel.app/api/data" target="_blank" rel="noopener">live API</a>.
+  </footer>
+</div>
+
+<script>
+const API = "https://hs-money-digest.vercel.app/api/data";
+let DATA = null, tab = "hackathons", q = "";
+
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const TABS = [
+  ["hackathons", "🚀 Hackathons"],
+  ["gigs", "⚡ Gigs"],
+  ["jobs", "📍 Local Jobs"],
+  ["internships", "🔬 Internships"],
+  ["competitions", "🏆 Competitions"],
+  ["platforms", "🛠 Platforms"],
+];
+
+function counts() {
+  if (!DATA) return {};
+  return {
+    hackathons: DATA.hackathonTotal,
+    gigs: DATA.gigs.length,
+    jobs: DATA.jobs.length,
+    internships: DATA.internships.length,
+    competitions: DATA.competitions.length,
+    platforms: DATA.platforms.length,
+  };
+}
+
+function renderTabs() {
+  const c = counts();
+  document.getElementById("tabs").innerHTML = TABS.map(([id, label]) =>
+    `<button class="tab${tab === id ? " active" : ""}" onclick="setTab('${id}')">${label}<span class="n">${c[id] ?? ""}</span></button>`
+  ).join("");
+}
+
+function setTab(t) { tab = t; renderTabs(); renderContent(); }
+
+function match(...fields) {
+  if (!q) return true;
+  return fields.join(" ").toLowerCase().includes(q);
+}
+
+function dlPill(dl) {
+  if (!dl) return `<span class="pill rolling">rolling</span>`;
+  const d = new Date(dl.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `<span class="pill ${dl.days <= 14 ? "urgent" : "ok"}">~${d} · ${dl.days}d left</span>`;
+}
+
+function card(inner) { return `<div class="card">${inner}</div>`; }
+function title(url, name) { return `<a class="title" href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a>`; }
+
+function renderContent() {
+  const el = document.getElementById("content");
+  if (!DATA) return;
+  let html = "", list = false;
+
+  if (tab === "hackathons") {
+    list = true;
+    html = DATA.hackathons.map((g) => {
+      const items = g.items.filter((h) => match(h.name, h.location, g.source));
+      if (!items.length) return "";
+      return `<div style="margin:18px 0 8px;font-weight:700;color:var(--slate);font-size:13px;text-transform:uppercase;letter-spacing:.5px;">${esc(g.source)} · ${items.length}</div>` +
+        items.map((h) => card(
+          title(h.url, h.name) +
+          `<span class="pill src">${esc(g.source)}</span>` +
+          (h.hs ? `<span class="pill hs">HS</span>` : "") +
+          `<div class="meta">${[h.dates, h.location].filter(Boolean).map(esc).join(" · ")}${h.prize ? ` · <b>${esc(h.prize)}</b>` : ""}</div>`
+        )).join("");
+    }).join("");
+  } else if (tab === "gigs") {
+    html = DATA.gigs.filter((g) => match(g.title, g.source)).map((g) => card(
+      title(g.url, g.title) +
+      `<span class="pill src">${esc(g.source)}</span>` +
+      (g.ageFlag ? `<span class="pill warn">may require 18+</span>` : "") +
+      `<div class="meta">${g.budget ? `<b>${esc(g.budget)}</b>` : "budget unlisted"}</div>`
+    )).join("");
+  } else if (tab === "jobs") {
+    html = DATA.jobs.filter((j) => match(j.title, j.company, j.location)).map((j) => card(
+      title(j.url, j.title) +
+      `<div class="meta">${esc(j.company)} · ${esc(j.location)}${j.salary ? ` · <b>${esc(j.salary)}</b>` : ""}${j.posted ? ` · posted ${esc(j.posted)}` : ""}</div>`
+    )).join("");
+  } else if (tab === "internships") {
+    html = DATA.internships.filter((x) => match(x.name, x.eligibility, x.pay)).map((x) => card(
+      title(x.url, x.name) + dlPill(x.dl) +
+      `<div class="meta">${esc(x.pay)}<br>${esc(x.eligibility)}</div>`
+    )).join("");
+  } else if (tab === "competitions") {
+    html = DATA.competitions.filter((x) => match(x.name, x.eligibility, x.prize)).map((x) => card(
+      title(x.url, x.name) + dlPill(x.dl) +
+      `<div class="meta"><b>${esc(x.prize)}</b><br>${esc(x.eligibility)}</div>`
+    )).join("");
+  } else if (tab === "platforms") {
+    html = DATA.platforms.filter((p) => match(p.name, p.note)).map((p) => card(
+      title(p.url, p.name) + `<div class="meta">${esc(p.note)}</div>`
+    )).join("");
+  }
+
+  el.innerHTML = html
+    ? `<div class="grid${list ? " list" : ""}">${html}</div>`
+    : `<div class="empty">Nothing matches${q ? ` "${esc(q)}"` : ""}.</div>`;
+}
+
+document.getElementById("search").addEventListener("input", (e) => {
+  q = e.target.value.trim().toLowerCase();
+  renderContent();
+});
+
+async function load() {
+  try {
+    const r = await fetch(API);
+    DATA = await r.json();
+    const dt = new Date(DATA.updated);
+    document.getElementById("updated").textContent =
+      "updated " + dt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    document.getElementById("notes").innerHTML = (DATA.notes || []).length
+      ? `<div class="note">${DATA.notes.map(esc).join("<br>")}</div>` : "";
+    renderTabs();
+    renderContent();
+  } catch (e) {
+    document.getElementById("content").innerHTML =
+      `<div class="empty">Failed to load data. The API may be waking up; <a href="javascript:location.reload()" style="color:var(--blue)">retry</a>.</div>`;
+  }
+}
+load();
+</script>
+</body>
+</html>
