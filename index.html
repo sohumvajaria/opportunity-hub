@@ -44,7 +44,7 @@
   #flip { display: inline-block; min-width: 5ch; }
 
   /* stats */
-  .stats { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid var(--line);
+  .stats { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--line);
     margin: 36px 0 0; background: var(--card); }
   .stat { padding: 18px 14px 14px; border-right: 1px solid var(--line); cursor: pointer; transition: background .2s; }
   .stat:last-child { border-right: none; }
@@ -224,12 +224,14 @@ setInterval(() => { wi = (wi + 1) % WORDS.length; scrambleTo($("flip"), WORDS[wi
 /* ---- tabs + stats ---- */
 const TABS = [
   ["hackathons", "Hackathons"], ["gigs", "Gigs"], ["jobs", "Local Jobs"],
-  ["internships", "Internships"], ["competitions", "Competitions"], ["platforms", "Platforms"],
+  ["internships", "Internships"], ["programs", "Summer Programs"],
+  ["competitions", "Competitions"], ["platforms", "Platforms"],
 ];
 function counts() {
   return {
     hackathons: DATA.hackathonTotal, gigs: DATA.gigs.length, jobs: DATA.jobs.length,
-    internships: DATA.internships.length, competitions: DATA.competitions.length, platforms: DATA.platforms.length,
+    internships: DATA.internships.length, programs: (DATA.programs || []).length,
+    competitions: DATA.competitions.length, platforms: DATA.platforms.length,
   };
 }
 function renderChrome() {
@@ -261,7 +263,7 @@ function setTab(t) { tab = t; renderChrome(); renderContent();
 
 /* ---- ticker ---- */
 function renderTicker() {
-  const soon = [...DATA.internships, ...DATA.competitions]
+  const soon = [...DATA.internships, ...(DATA.programs || []), ...DATA.competitions]
     .filter((x) => x.dl && x.dl.days <= 60)
     .sort((a, b) => a.dl.days - b.dl.days)
     .map((x) => `<b>${esc(x.name)}</b> <i>${x.dl.days}d left</i>`);
@@ -320,6 +322,12 @@ function renderContent() {
     html = DATA.internships.filter((x) => match(x.name, x.eligibility, x.pay)).map((x) => row({
       url: x.url, title: x.name,
       metaHtml: `${esc(x.pay)}<br>${esc(x.eligibility)}`,
+      side: due(x.dl),
+    })).join("");
+  } else if (tab === "programs") {
+    html = (DATA.programs || []).filter((x) => match(x.name, x.host, x.eligibility, x.cost)).map((x) => row({
+      url: x.url, title: x.name,
+      metaHtml: `${esc(x.host)} · ${esc(x.cost)}<br>${esc(x.eligibility)}`,
       side: due(x.dl),
     })).join("");
   } else if (tab === "competitions") {
