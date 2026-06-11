@@ -44,7 +44,7 @@
   #flip { display: inline-block; min-width: 5ch; }
 
   /* stats */
-  .stats { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--line);
+  .stats { display: grid; grid-template-columns: repeat(8, 1fr); border: 1px solid var(--line);
     margin: 36px 0 0; background: var(--card); }
   .stat { padding: 18px 14px 14px; border-right: 1px solid var(--line); cursor: pointer; transition: background .2s; }
   .stat:last-child { border-right: none; }
@@ -86,6 +86,17 @@
   .tablink:hover { color: var(--ink); }
   .tablink.active { color: var(--accent); border-bottom-color: var(--accent); }
   .tablink .n { color: var(--faint); margin-left: 5px; }
+  .gradebar { display: flex; gap: 8px; align-items: center; padding: 10px 2px 12px;
+    font-size: 10px; color: var(--faint); letter-spacing: .12em; text-transform: uppercase; flex-wrap: wrap; }
+  .gpill { cursor: pointer; background: none; border: 1px solid var(--line); border-radius: 99px;
+    color: var(--dim); font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; padding: 3px 11px; transition: all .15s; }
+  .gpill:hover { color: var(--ink); border-color: var(--dim); }
+  .gpill.active { color: var(--accent); border-color: var(--accent); }
+  .cal { cursor: pointer; background: none; border: 1px solid var(--line); border-radius: 99px;
+    color: var(--dim); font-family: var(--mono); font-size: 10px; padding: 2px 9px;
+    margin-left: 8px; transition: all .15s; }
+  .cal:hover { color: var(--accent); border-color: var(--accent); }
 
   /* notes */
   .note { border: 1px solid #4d3c14; background: #1d1809; color: #d8a73a; padding: 10px 14px;
@@ -172,6 +183,13 @@
       <span class="kbd" id="kbdhint">⌘K</span>
     </div>
     <div class="tabrow" id="tabs"></div>
+    <div class="gradebar">grade
+      <button class="gpill active" data-g="all" onclick="setGrade('all')">All</button>
+      <button class="gpill" data-g="soph" onclick="setGrade('soph')">Sophomore</button>
+      <button class="gpill" data-g="junior" onclick="setGrade('junior')">Junior</button>
+      <button class="gpill" data-g="senior" onclick="setGrade('senior')">Senior</button>
+      <span style="letter-spacing:.05em;">matches stated eligibility, unknowns always shown</span>
+    </div>
   </div>
 
   <div id="notes"></div>
@@ -225,14 +243,67 @@ setInterval(() => { wi = (wi + 1) % WORDS.length; scrambleTo($("flip"), WORDS[wi
 const TABS = [
   ["hackathons", "Hackathons"], ["gigs", "Gigs"], ["jobs", "Local Jobs"],
   ["internships", "Internships"], ["programs", "Summer Programs"],
-  ["competitions", "Competitions"], ["platforms", "Platforms"],
+  ["scholarships", "Scholarships"], ["competitions", "Competitions"], ["platforms", "Platforms"],
 ];
 function counts() {
   return {
     hackathons: DATA.hackathonTotal, gigs: DATA.gigs.length, jobs: DATA.jobs.length,
     internships: DATA.internships.length, programs: (DATA.programs || []).length,
+    scholarships: (DATA.scholarships || []).length,
     competitions: DATA.competitions.length, platforms: DATA.platforms.length,
   };
+}
+
+/* ---- grade filter ---- */
+let grade = "all";
+function gradesOf(text) {
+  const t = (text || "").toLowerCase();
+  const g = new Set();
+  if (/sophomore/.test(t)) g.add("soph");
+  if (/junior/.test(t)) g.add("junior");
+  if (/senior/.test(t)) g.add("senior");
+  return g.size ? g : null; // null = unknown, always shown
+}
+function byGrade(x) {
+  if (grade === "all") return true;
+  const g = gradesOf(x.eligibility);
+  return !g || g.has(grade);
+}
+function setGrade(g) {
+  grade = g;
+  document.querySelectorAll(".gpill").forEach((b) => b.classList.toggle("active", b.dataset.g === g));
+  renderContent();
+}
+
+/* ---- ics calendar export ---- */
+let CAL = [];
+function calBtn(name, dl, url) {
+  if (!dl) return "";
+  CAL.push({ name, date: dl.date, url });
+  return `<button class="cal" title="add deadline to calendar" onclick="dlIcs(event,${CAL.length - 1})">+ cal</button>`;
+}
+function dlIcs(e, i) {
+  e.preventDefault(); e.stopPropagation();
+  const { name, date, url } = CAL[i];
+  const d = new Date(date);
+  const ymd = (dt) => dt.getFullYear() + String(dt.getMonth() + 1).padStart(2, "0") + String(dt.getDate()).padStart(2, "0");
+  const next = new Date(d); next.setDate(d.getDate() + 1);
+  const escIcs = (s) => String(s).replace(/([,;\\])/g, "\\$1");
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//opportunity-hub//EN",
+    "BEGIN:VEVENT",
+    "UID:" + ymd(d) + "-" + i + "@opportunity-hub",
+    "DTSTAMP:" + ymd(new Date()) + "T000000Z",
+    "DTSTART;VALUE=DATE:" + ymd(d),
+    "DTEND;VALUE=DATE:" + ymd(next),
+    "SUMMARY:" + escIcs("Deadline: " + name),
+    "DESCRIPTION:" + escIcs(url + " (deadline is approximate, verify on the site)"),
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
+  a.download = name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 50) + ".ics";
+  document.body.appendChild(a); a.click(); a.remove();
 }
 function renderChrome() {
   const c = counts();
@@ -263,7 +334,7 @@ function setTab(t) { tab = t; renderChrome(); renderContent();
 
 /* ---- ticker ---- */
 function renderTicker() {
-  const soon = [...DATA.internships, ...(DATA.programs || []), ...DATA.competitions]
+  const soon = [...DATA.internships, ...(DATA.programs || []), ...(DATA.scholarships || []), ...DATA.competitions]
     .filter((x) => x.dl && x.dl.days <= 60)
     .sort((a, b) => a.dl.days - b.dl.days)
     .map((x) => `<b>${esc(x.name)}</b> <i>${x.dl.days}d left</i>`);
@@ -292,6 +363,7 @@ function row({ url, title, metaHtml, side, pills }) {
 
 function renderContent() {
   rowN = 0;
+  CAL = [];
   let html = "";
   if (tab === "hackathons") {
     html = DATA.hackathons.map((g) => {
@@ -319,22 +391,28 @@ function renderContent() {
       side: j.posted ? "posted " + esc(j.posted) : "",
     })).join("");
   } else if (tab === "internships") {
-    html = DATA.internships.filter((x) => match(x.name, x.eligibility, x.pay)).map((x) => row({
+    html = DATA.internships.filter((x) => match(x.name, x.eligibility, x.pay) && byGrade(x)).map((x) => row({
       url: x.url, title: x.name,
       metaHtml: `${esc(x.pay)}<br>${esc(x.eligibility)}`,
-      side: due(x.dl),
+      side: due(x.dl) + calBtn(x.name, x.dl, x.url),
     })).join("");
   } else if (tab === "programs") {
-    html = (DATA.programs || []).filter((x) => match(x.name, x.host, x.eligibility, x.cost)).map((x) => row({
+    html = (DATA.programs || []).filter((x) => match(x.name, x.host, x.eligibility, x.cost) && byGrade(x)).map((x) => row({
       url: x.url, title: x.name,
       metaHtml: `${esc(x.host)} · ${esc(x.cost)}<br>${esc(x.eligibility)}`,
-      side: due(x.dl),
+      side: due(x.dl) + calBtn(x.name, x.dl, x.url),
+    })).join("");
+  } else if (tab === "scholarships") {
+    html = (DATA.scholarships || []).filter((x) => match(x.name, x.sponsor, x.eligibility, x.award) && byGrade(x)).map((x) => row({
+      url: x.url, title: x.name,
+      metaHtml: `${esc(x.sponsor)} · <b>${esc(x.award)}</b><br>${esc(x.eligibility)}`,
+      side: due(x.dl) + calBtn(x.name, x.dl, x.url),
     })).join("");
   } else if (tab === "competitions") {
-    html = DATA.competitions.filter((x) => match(x.name, x.eligibility, x.prize)).map((x) => row({
+    html = DATA.competitions.filter((x) => match(x.name, x.eligibility, x.prize) && byGrade(x)).map((x) => row({
       url: x.url, title: x.name,
       metaHtml: `<b>${esc(x.prize)}</b><br>${esc(x.eligibility)}`,
-      side: due(x.dl),
+      side: due(x.dl) + calBtn(x.name, x.dl, x.url),
     })).join("");
   } else if (tab === "platforms") {
     html = DATA.platforms.filter((p) => match(p.name, p.note)).map((p) => row({
